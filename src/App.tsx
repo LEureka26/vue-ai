@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { getPrompt } from './promptTemplates'
-import { streamChatCompletion, getApiKey, saveApiKey } from './api/chat'
+import { streamChatCompletion } from './api/chat'
 import type { WritingMode } from './promptTemplates'
 import { getHistory, saveToHistory, deleteFromHistory, formatTime, type HistoryItem } from './utils/history'
 
@@ -23,10 +23,10 @@ const TEMPERATURE_OPTIONS = [
 ]
 
 const MAX_TOKENS_OPTIONS = [
-  { value: 500, label: '简短 (500字)' },
-  { value: 1000, label: '中等 (1000字)' },
-  { value: 1500, label: '较长 (1500字)' },
-  { value: 2000, label: '详细 (2000字)' },
+  { value: 100, label: '简短 (100字)' },
+  { value: 500, label: '中等 (500字)' },
+  { value: 1000, label: '较长 (1000字)' },
+  { value: 1200, label: '详细 (1200字)' },
 ]
 
 function App() {
@@ -34,13 +34,13 @@ function App() {
   const [input, setInput] = useState('')
   const [output, setOutput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [apiKey, setApiKey] = useState(getApiKey() || '')
-  const [showApiKeyInput, setShowApiKeyInput] = useState(!getApiKey())
   const [error, setError] = useState('')
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens] = useState(1000)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null)
+
+  const outputRef = useRef('')
 
   useEffect(() => {
     setHistory(getHistory())
@@ -52,35 +52,29 @@ function App() {
 
   const handleGenerate = async () => {
     if (!input.trim()) return
-    if (!apiKey.trim()) {
-      setError('请先输入智谱 AI API Key')
-      return
-    }
 
     setLoading(true)
     setOutput('')
     setError('')
     setSelectedHistory(null)
+    outputRef.current = ''
 
     const prompt = getPrompt(mode, input)
 
     try {
-      await streamChatCompletion(
-        apiKey,
+      const finalOutput = await streamChatCompletion(
         [{ role: 'user', content: prompt }],
         { temperature, maxTokens },
         (token) => {
-          setOutput((prev) => prev + token)
-        },
-        (err) => {
-          setError(`API 调用失败: ${err.message}`)
+          outputRef.current += token
+          setOutput(outputRef.current)
         }
       )
 
-      if (output.trim()) {
+      if (finalOutput.trim()) {
         saveToHistory({
           prompt: input.trim(),
-          output: output.trim(),
+          output: finalOutput.trim(),
           mode,
           temperature,
           maxTokens,
@@ -88,73 +82,28 @@ function App() {
         refreshHistory()
       }
     } catch (err) {
-      setError(`生成失败: ${err instanceof Error ? err.message : String(err)}`)
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSaveApiKey = () => {
-    if (apiKey.trim()) {
-      saveApiKey(apiKey)
-      setShowApiKeyInput(false)
-      setError('')
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-[#fdfbf8]">
-      {/* API Key 设置 */}
-      {showApiKeyInput && (
-        <div className="bg-white border-b border-[#d4b038]">
-          <div className="max-w-7xl mx-auto px-6 py-3">
-            <div className="flex items-center gap-3 max-w-2xl">
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="请输入智谱 AI API Key"
-                className="flex-1 bg-[#faf6f0] border border-[#d4b038] rounded px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#d4a574]"
-              />
-              <button
-                onClick={handleSaveApiKey}
-                disabled={!apiKey.trim()}
-                className="px-4 py-2 text-sm font-medium rounded transition-all bg-[#d4b038] text-white disabled:bg-[#e8d5b8] disabled:text-gray-400"
-              >
-                保存
-              </button>
-              <button
-                onClick={() => setShowApiKeyInput(false)}
-                className="px-4 py-2 text-sm text-[#d4b038] hover:text-[#d4b038]"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="min-h-screen bg-[#f5f5f5]">
       {/* 顶部标题 */}
-      <header className="bg-[#fdfbf8]  border-[#b89060]">
+      <header className="bg-[#fdfbf8] ">
         <div className="max-w-7xl mx-auto px-6 py-6 text-center">
           <h1 className="text-2xl font-bold text-[#d4b038] mb-2">智能写作助手</h1>
           <p className="text-xs text-[#d4b038]">AI Writing Assistant · 让文字更有力量</p>
-          {!showApiKeyInput && (
-            <button
-              onClick={() => setShowApiKeyInput(true)}
-              className="mt-3 text-xs text-[#d4b038] hover:text-[#d4b038]"
-            >
-              设置 API Key
-            </button>
-          )}
         </div>
-        <div className="h-px bg-[#d4b038] w-[95%] mx-auto" />
+        <div className="h-px bg-[#d4b038] w-[92%] mx-auto" />
       </header>
 
       {/* 主内容区 */}
       <main className="max-w-7xl mx-auto px-6 py-6">
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded text-sm text-red-600 whitespace-pre-line">
             {error}
           </div>
         )}
@@ -163,8 +112,8 @@ function App() {
           {/* 左侧边栏 */}
           <div className="col-span-12 lg:col-span-2">
             {/* 写作模式 */}
-            <div className="bg-white rounded border border-[#d4b038] p-3 mb-4">
-              <h3 className="text-xs font-medium text-black mb-3 px-1">写作模式</h3>
+            <div className="bg-white rounded border border-[#e8d5b8] p-3 mb-4">
+              <h3 className="text-xs font-medium text-[#8b7355] mb-3 px-1">写作模式</h3>
               <div className="space-y-1">
                 {MODES.map((m) => (
                   <button
@@ -173,7 +122,7 @@ function App() {
                     className={`w-full text-sm text-left px-3 py-2 rounded transition-all ${
                       mode === m
                         ? 'bg-[#d4b038] text-white'
-                        : 'text-gray-600 hover:bg-[#fcefda]'
+                        : 'text-gray-600 hover:bg-[#faf6f0]'
                     }`}
                   >
                     {MODE_LABELS[m]}
@@ -183,8 +132,8 @@ function App() {
             </div>
 
             {/* 历史记录 */}
-            <div className="bg-white rounded border border-[#d4b038] p-3">
-              <h3 className="text-xs font-medium text-[#d4b038] mb-3 px-1">历史记录</h3>
+            <div className="bg-white rounded border border-[#e8d5b8] p-3">
+              <h3 className="text-xs font-medium text-[#8b7355] mb-3 px-1">历史记录</h3>
               <div className="space-y-1 max-h-[200px] overflow-y-auto">
                 {history.length === 0 ? (
                   <p className="text-xs text-gray-400 px-3 py-2">暂无历史记录</p>
@@ -194,8 +143,8 @@ function App() {
                       key={item.id}
                       className={`cursor-pointer text-xs px-3 py-2 rounded transition-all ${
                         selectedHistory?.id === item.id
-                          ? 'bg-[#d4b038] border-l-2 border-[#d4b038]'
-                          : 'hover:bg-[#d4b038]'
+                          ? 'bg-[#faf6f0] border-l-2 border-[#d4b038]'
+                          : 'hover:bg-[#faf6f0]'
                       }`}
                       onClick={() => setSelectedHistory(item)}
                     >
@@ -242,14 +191,14 @@ function App() {
           {/* 右侧主内容 */}
           <div className="col-span-12 lg:col-span-10">
             {/* 参数栏 */}
-            <div className="bg-white rounded border border-[#d4b038] p-4 mb-4 flex items-center justify-between">
+            <div className="bg-white rounded border border-[#e8d5b8] p-4 mb-4 flex items-center justify-between">
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-[#d4b038]">创意度</label>
+                  <label className="text-xs font-medium text-[#8b7355]">创意度</label>
                   <select
                     value={temperature}
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                    className="bg-white border border-[#d4b038] rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#d4a574]"
+                    className="bg-[#faf6f0] border border-[#d4b038] rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#d4b038]"
                   >
                     {TEMPERATURE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -259,11 +208,11 @@ function App() {
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-[#d4b038]">输出长度</label>
+                  <label className="text-xs font-medium text-[#8b7355]">输出长度</label>
                   <select
                     value={maxTokens}
                     onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-                    className="bg-white border border-[#d4b038] rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#d4a574]"
+                    className="bg-[#faf6f0] border border-[#d4b038] rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#d4b038]"
                   >
                     {MAX_TOKENS_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -295,10 +244,10 @@ function App() {
             {/* 输入输出区域 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* 输入区域 */}
-              <div className="bg-white rounded border border-[#d4b038]">
+              <div className="bg-white rounded border border-[#e8d5b8]">
                 <div className="px-4 py-2 border-b border-[#d4b038] flex items-center">
                   <div className="h-px flex-1 bg-[#d4b038]" />
-                  <span className="px-3 text-xs font-medium text-[#000]">输入</span>
+                  <span className="px-3 text-xs font-medium text-[#8b7355]">输入</span>
                   <div className="h-px flex-1 bg-[#d4b038]" />
                 </div>
                 <textarea
@@ -307,7 +256,7 @@ function App() {
                   placeholder="在这里输入你想要处理的文本内容..."
                   className="w-full p-4 min-h-[400px] resize-none focus:outline-none text-sm text-gray-700 placeholder-gray-400"
                 />
-                <div className="px-4 py-2 border-t border-[#d4b038] flex justify-between items-center">
+                <div className="px-4 py-2 border-t border-[#e8d5b8] flex justify-between items-center">
                   <span className="text-xs text-gray-400">{input.length} 字</span>
                   {input.length > 0 && (
                     <button
@@ -321,11 +270,11 @@ function App() {
               </div>
 
               {/* 输出区域 */}
-              <div className="bg-white rounded border border-[#d4b038]">
+              <div className="bg-white rounded border border-[#e8d5b8]">
                 <div className="px-4 py-2 border-b border-[#d4b038] flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="h-px w-4 bg-[#d4b038]" />
-                    <span className="px-3 text-xs font-medium text-[#000]">输出</span>
+                    <span className="px-3 text-xs font-medium text-[#8b7355]">输出</span>
                     <div className="h-px flex-1 bg-[#d4b038]" />
                   </div>
                   {selectedHistory && (
@@ -339,7 +288,7 @@ function App() {
                 </div>
                 <div className="p-4 min-h-[400px] overflow-auto">
                   {loading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-[#d4a574]">
+                    <div className="flex flex-col items-center justify-center h-full text-[#d4b038]">
                       <div className="flex gap-1">
                         <span className="w-2 h-2 rounded-full bg-[#d4b038] animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-2 h-2 rounded-full bg-[#d4b038] animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -360,7 +309,7 @@ function App() {
                           li: ({ children }) => <li className="text-sm">{children}</li>,
                           strong: ({ children }) => <strong className="font-semibold text-[#d4b038]">{children}</strong>,
                           em: ({ children }) => <em className="italic text-gray-600">{children}</em>,
-                          code: ({ children }) => <code className="px-1.5 py-0.5 bg-[#d4b038] rounded text-xs font-mono">{children}</code>,
+                          code: ({ children }) => <code className="px-1.5 py-0.5 bg-[#faf6f0] rounded text-xs font-mono">{children}</code>,
                           blockquote: ({ children }) => <blockquote className="border-l-2 border-[#d4b038] pl-3 italic text-gray-600 my-2">{children}</blockquote>,
                         }}
                       >
@@ -380,7 +329,7 @@ function App() {
                           li: ({ children }) => <li className="text-sm">{children}</li>,
                           strong: ({ children }) => <strong className="font-semibold text-[#d4b038]">{children}</strong>,
                           em: ({ children }) => <em className="italic text-gray-600">{children}</em>,
-                          code: ({ children }) => <code className="px-1.5 py-0.5 bg-[#d4b038] rounded text-xs font-mono">{children}</code>,
+                          code: ({ children }) => <code className="px-1.5 py-0.5 bg-[#faf6f0] rounded text-xs font-mono">{children}</code>,
                           blockquote: ({ children }) => <blockquote className="border-l-2 border-[#d4b038] pl-3 italic text-gray-600 my-2">{children}</blockquote>,
                         }}
                       >
@@ -397,7 +346,7 @@ function App() {
                   )}
                 </div>
                 {(output || selectedHistory) && (
-                  <div className="px-4 py-2 border-t border-[#d4b038] flex justify-between items-center">
+                  <div className="px-4 py-2 border-t border-[#e8d5b8] flex justify-between items-center">
                     <span className="text-xs text-gray-400">
                       字数：{(selectedHistory?.output.length || output.length)}
                     </span>
@@ -405,7 +354,7 @@ function App() {
                       onClick={() => {
                         navigator.clipboard.writeText(selectedHistory?.output || output)
                       }}
-                      className="text-xs text-[#d4b038] hover:text-[#d4b038]"
+                      className="text-xs text-[#d4b038] hover:text-[#b89060]"
                     >
                       复制内容
                     </button>
