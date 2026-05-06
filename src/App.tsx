@@ -84,6 +84,16 @@ function App() {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
+      if (outputRef.current.trim()) {
+        saveToHistory({
+          prompt: input.trim(),
+          output: outputRef.current.trim(),
+          mode,
+          temperature,
+          maxTokens,
+        })
+        refreshHistory()
+      }
     } finally {
       setLoading(false)
     }
@@ -254,7 +264,7 @@ function App() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="在这里输入你想要处理的文本内容..."
-                  className="w-full p-4 min-h-[400px] resize-none focus:outline-none text-sm text-gray-700 placeholder-gray-400"
+                  className="w-full p-4 h-[400px] resize-none focus:outline-none text-sm text-gray-700 placeholder-gray-400 overflow-y-auto"
                 />
                 <div className="px-4 py-2 border-t border-[#e8d5b8] flex justify-between items-center">
                   <span className="text-xs text-gray-400">{input.length} 字</span>
@@ -286,7 +296,7 @@ function App() {
                     </button>
                   )}
                 </div>
-                <div className="p-4 min-h-[400px] overflow-auto">
+                <div className="p-4 h-[400px] overflow-y-auto">
                   {loading ? (
                     <div className="flex flex-col items-center justify-center h-full text-[#d4b038]">
                       <div className="flex gap-1">

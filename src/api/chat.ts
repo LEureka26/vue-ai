@@ -177,6 +177,10 @@ export async function streamChatCompletion(
       }
     }
 
+    if (fullContent.trim()) {
+      return fullContent
+    }
+
     if (!receivedAnyData) {
       throw new ApiError(
         'API未返回任何数据，可能原因：\n' +
@@ -190,16 +194,12 @@ export async function streamChatCompletion(
       throw new ApiError('API响应流异常中断，未收到结束标记')
     }
 
-    if (!fullContent.trim()) {
-      throw new ApiError(
-        'API返回了空内容，可能原因：\n' +
-        '1. API密钥格式不兼容当前API版本\n' +
-        '2. 当前密钥为旧版格式({id}.{secret})，请前往 open.bigmodel.cn 重新生成\n' +
-        '3. 模型 ' + model + ' 暂不可用，可尝试 glm-4-flash'
-      )
-    }
-
-    return fullContent
+    throw new ApiError(
+      'API返回了空内容，可能原因：\n' +
+      '1. API密钥格式不兼容当前API版本\n' +
+      '2. 当前密钥为旧版格式({id}.{secret})，请前往 open.bigmodel.cn 重新生成\n' +
+      '3. 模型 ' + model + ' 暂不可用，可尝试 glm-4-flash'
+    )
   } catch (error) {
     if (error instanceof ApiError) {
       throw error
