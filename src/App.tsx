@@ -22,12 +22,24 @@ const TEMPERATURE_OPTIONS = [
   { value: 1.0, label: '很有创意 (1.0)' },
 ]
 
-const MAX_TOKENS_OPTIONS = [
+interface TokenOption {
+  value: number
+  label: string
+}
+
+const DEFAULT_MAX_TOKENS_OPTIONS: TokenOption[] = [
   { value: 100, label: '简短 (100字)' },
   { value: 500, label: '中等 (500字)' },
   { value: 1000, label: '较长 (1000字)' },
   { value: 1200, label: '详细 (1200字)' },
 ]
+
+function getMaxTokensOptions(customOptions?: TokenOption[]): TokenOption[] {
+  if (customOptions && customOptions.length > 0) {
+    return customOptions
+  }
+  return DEFAULT_MAX_TOKENS_OPTIONS
+}
 
 function App() {
   const [mode, setMode] = useState<WritingMode>('续写')
@@ -36,7 +48,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [temperature, setTemperature] = useState(0.7)
-  const [maxTokens, setMaxTokens] = useState(1000)
+  const [maxTokens, setMaxTokens] = useState(100)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null)
 
@@ -224,7 +236,7 @@ function App() {
                     onChange={(e) => setMaxTokens(parseInt(e.target.value))}
                     className="bg-[#faf6f0] border border-[#d4b038] rounded px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#d4b038]"
                   >
-                    {MAX_TOKENS_OPTIONS.map((opt) => (
+                    {getMaxTokensOptions().map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
