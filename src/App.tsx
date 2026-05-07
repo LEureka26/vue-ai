@@ -41,6 +41,9 @@ function getMaxTokensOptions(customOptions?: TokenOption[]): TokenOption[] {
   return DEFAULT_MAX_TOKENS_OPTIONS
 }
 
+const BASE_WIDTH = 1280
+const PC_BREAKPOINT = 1024
+
 function App() {
   const [mode, setMode] = useState<WritingMode>('续写')
   const [input, setInput] = useState('')
@@ -51,11 +54,25 @@ function App() {
   const [maxTokens, setMaxTokens] = useState(100)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null)
+  const [scale, setScale] = useState(1)
+  const [isPc, setIsPc] = useState(true)
 
   const outputRef = useRef('')
 
   useEffect(() => {
     setHistory(getHistory())
+  }, [])
+
+  useEffect(() => {
+    const handleResize = () => {
+      const vw = window.innerWidth
+      const pc = vw >= PC_BREAKPOINT
+      setIsPc(pc)
+      setScale(pc ? 1 : vw / BASE_WIDTH)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   const refreshHistory = () => {
@@ -112,9 +129,25 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
+    <div
+      style={{
+        width: BASE_WIDTH + 'px',
+        margin: isPc ? '0 auto' : '0',
+        transform: isPc ? 'none' : `scale(${scale})`,
+        transformOrigin: 'top left',
+        minHeight: isPc ? '100vh' : `calc(100vh / ${scale})`,
+      }}
+      className="bg-[#f5f5f5]"
+    >
       {/* 顶部标题 */}
       <header className="bg-[#fdfbf8] ">
+        {/* 这是一个容器div，使用Tailwind CSS类名：
+            - max-w-7xl: 最大宽度为80rem (1280px)
+            - mx-auto: 水平居中（左右margin自动）
+            - px-6: 水平内边距1.5rem (24px)
+            - py-6: 垂直内边距1.5rem (24px)
+            - text-center: 文本居中对齐
+            作用：限制内容最大宽度并居中，添加内边距，使标题和副标题居中显示 */}
         <div className="max-w-7xl mx-auto px-6 py-6 text-center">
           <h1 className="text-2xl font-bold text-[#d4b038] mb-2">智能写作助手</h1>
           <p className="text-xs text-[#d4b038]">AI Writing Assistant · 让文字更有力量</p>
@@ -132,7 +165,7 @@ function App() {
 
         <div className="grid grid-cols-12 gap-6">
           {/* 左侧边栏 */}
-          <div className="col-span-12 lg:col-span-2">
+          <div className="col-span-2">
             {/* 写作模式 */}
             <div className="bg-white rounded border border-[#e8d5b8] p-3 mb-4">
               <h3 className="text-xs font-medium text-[#8b7355] mb-3 px-1">写作模式</h3>
@@ -211,7 +244,7 @@ function App() {
           </div>
 
           {/* 右侧主内容 */}
-          <div className="col-span-12 lg:col-span-10">
+          <div className="col-span-10">
             {/* 参数栏 */}
             <div className="bg-white rounded border border-[#e8d5b8] p-4 mb-4 flex items-center justify-between">
               <div className="flex items-center gap-6">
@@ -264,7 +297,7 @@ function App() {
             </div>
 
             {/* 输入输出区域 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {/* 输入区域 */}
               <div className="bg-white rounded border border-[#e8d5b8]">
                 <div className="px-4 py-2 border-b border-[#d4b038] flex items-center">
