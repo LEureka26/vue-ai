@@ -51,7 +51,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [temperature, setTemperature] = useState(0.7)
-  const [maxTokens, setMaxTokens] = useState(100)
+  const [maxTokens, setMaxTokens] = useState(DEFAULT_MAX_TOKENS_OPTIONS[0].value)
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [selectedHistory, setSelectedHistory] = useState<HistoryItem | null>(null)
   const [scale, setScale] = useState(1)
